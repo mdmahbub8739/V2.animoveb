@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Animoweb</title>
+<script>
+(function() {
+  var path = location.pathname + location.search + location.hash;
+  try { sessionStorage.setItem('omniflix:redirect', path); } catch (_) {}
+  location.replace('/');
+})();
+</script></head><body></body></html>
