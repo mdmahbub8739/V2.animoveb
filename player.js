@@ -153,6 +153,16 @@
     function defaultChain() {
         return [
             // 1. PRIMARY (OrVid as the default server)
+
+            
+            {
+                name: 'Lumen-Hindi',
+                kind: 'peachify',
+                opts: {
+                    dub: 'Hindi'
+                }
+            },
+            
             {
                 name: 'Aurora-Hindi',
                 kind: 'aurora',
@@ -161,14 +171,6 @@
                 }
             },
 
-
-            {
-                name: 'Lumen-Hindi',
-                kind: 'peachify',
-                opts: {
-                    dub: 'Hindi'
-                }
-            },
 
 
             {
