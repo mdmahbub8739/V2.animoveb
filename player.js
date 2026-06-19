@@ -140,9 +140,10 @@
   // ── Server list (ScreenScape configured as Primary) ────────────────────────
   function defaultChain() {
     return [
+       { name: 'Lumen-Hindi', kind: 'peachify', opts: { dub: 'Hindi' } },
       { name: 'ScreenScape', kind: 'screenscape', opts: { lan: 'hindi' } },
       { name: 'Aurora-Hindi', kind: 'aurora', opts: { lang: 'hi' } },
-      { name: 'Lumen-Hindi', kind: 'peachify', opts: { dub: 'Hindi' } },
+     
       { name: 'Nebula', kind: 'nebula', opts: {} },
       { name: 'Orion-Hindi', kind: 'aurora', opts: { server: 'ZetPly-[Multi-Lang]', lang: 'hi' } },
       { name: 'Stellar', kind: 'vidrock', opts: {} },
