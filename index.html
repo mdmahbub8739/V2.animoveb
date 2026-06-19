@@ -8,24 +8,15 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Animoweb — Cinema, anime, everywhere.</title>
 <meta name="description" content="Animoweb — a cinematic streaming experience. Films, series & anime, beautifully.">
-
 <base href="/">
-
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23FF6B6B'/><stop offset='1' stop-color='%23FF3B30'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='%230B0C10'/><circle cx='32' cy='32' r='23' fill='none' stroke='url(%23g)' stroke-width='1' stroke-dasharray='1.5 3' opacity='0.55'/><circle cx='32' cy='32' r='18' fill='none' stroke='url(%23g)' stroke-width='2.6'/><circle cx='32' cy='32' r='12' fill='none' stroke='url(%23g)' stroke-width='0.8' opacity='0.4'/><circle cx='32' cy='9' r='1.8' fill='url(%23g)'/><circle cx='55' cy='32' r='1.8' fill='url(%23g)'/><circle cx='32' cy='55' r='1.8' fill='url(%23g)'/><circle cx='9' cy='32' r='1.8' fill='url(%23g)'/><path d='M28.5 24 L28.5 40 L41 32 Z' fill='url(%23g)'/></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%23FF6B6B'/><stop offset='1' stop-color='%23FF3B30'/></linearGradient></defs><rect width='64' height='64' rx='14' fill='%230B0C10'/><circle cx='32' cy='32' r='23' fill='none' stroke='url(%23g)' stroke-width='1' stroke-dasharray='1.5 3' opacity='0.55'/><circle cx='32' cy='32' r='18' fill='none' stroke='url(%23g)' stroke-width='2.6'/><circle cx='32' cy='32' r='12' fill='none' stroke='url(%23g)' stroke-width='0.8' opacity='0.4'/><circle cx='32' cy='9' r='1.8' fill='url(%23g)'/><circle cx='55' cy='32' r='1.8' fill='url(%23g)'/><circle cx='32' cy='55' r='1.8' fill='url(%23g)'/><circle cx='9' cy='32' r='1.8' fill='url(%23g)'/><path d='M28.5 24 L28.5 40 L41 32 Z' fill='url(%23g)'/></svg>">
-
 <link rel="manifest" href="/manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://image.tmdb.org" crossorigin>
 <link rel="preconnect" href="https://api.themoviedb.org">
-
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Onest:wght@300;400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
 <link href="https://cdn.jsdelivr.net/npm/remixicon@4.2.0/fonts/remixicon.css" rel="stylesheet">
-
 <link rel="stylesheet" href="style.css">
-
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <linearGradient id="of-grad" x1="0" y1="0" x2="1" y2="1">
@@ -34,7 +25,7 @@
     </linearGradient>
     <symbol id="omni-mark" viewBox="0 0 64 64">
       <rect width="64" height="64" rx="14" fill="#0B0C10"/>
-      <circle cx="32" cy="32" r="23" fill="none" stroke="url(#of-grad)" stroke-width="1"   stroke-dasharray="1.5 3" opacity="0.55"/>
+      <circle cx="32" cy="32" r="23" fill="none" stroke="url(#of-grad)" stroke-width="1" stroke-dasharray="1.5 3" opacity="0.55"/>
       <circle cx="32" cy="32" r="18" fill="none" stroke="url(#of-grad)" stroke-width="2.6"/>
       <circle cx="32" cy="32" r="12" fill="none" stroke="url(#of-grad)" stroke-width="0.8" opacity="0.4"/>
       <circle cx="32" cy="9"  r="1.8" fill="url(#of-grad)"/>
@@ -47,16 +38,13 @@
 </svg>
 </head>
 <body>
-
 <div class="mesh" aria-hidden="true">
   <div class="mesh__layer mesh__layer--a"></div>
   <div class="mesh__layer mesh__layer--b"></div>
   <div class="mesh__layer mesh__layer--c"></div>
   <div class="mesh__grain"></div>
 </div>
-
 <div class="cursor-spot" id="cursorSpot" aria-hidden="true"></div>
-
 <div class="splash" id="splash">
   <div class="splash__inner">
     <svg class="splash__logo" viewBox="0 0 64 64" aria-hidden="true"><use href="#omni-mark"/></svg>
@@ -65,13 +53,11 @@
     <div class="splash__loader"><span></span></div>
   </div>
 </div>
-
 <header class="topnav">
   <a class="brand" href="/" data-link>
     <svg class="brand__logo" viewBox="0 0 64 64" aria-hidden="true"><use href="#omni-mark"/></svg>
     <span class="brand__name">Anim<em>oweb</em></span>
   </a>
-
   <nav class="topnav__links" id="topnavLinks">
     <a href="/" data-link data-route="home">Home</a>
     <a href="/movies" data-link data-route="movies">Films</a>
@@ -80,13 +66,11 @@
     <a href="/people" data-link data-route="people">Cast</a>
     <a href="/list" data-link data-route="list">My List</a>
   </nav>
-
   <div class="topnav__tools">
     <button class="icon-btn" id="searchBtn" aria-label="Search"><i class="ri-search-2-line"></i></button>
     <button class="icon-btn" id="themeBtn" aria-label="Settings"><i class="ri-equalizer-3-line"></i></button>
   </div>
 </header>
-
 <nav class="bottomnav bottomnav--six" id="bottomNav">
   <a href="/" data-link data-route="home"><i class="ri-home-5-line"></i><span>Home</span></a>
   <a href="/movies" data-link data-route="movies"><i class="ri-film-line"></i><span>Films</span></a>
@@ -95,9 +79,7 @@
   <a href="/people" data-link data-route="people"><i class="ri-team-line"></i><span>Cast</span></a>
   <a href="/list" data-link data-route="list"><i class="ri-bookmark-line"></i><span>List</span></a>
 </nav>
-
 <main class="view" id="view"></main>
-
 <div id="player-host" class="player-host" data-mode="hidden" aria-hidden="true">
   <div class="player-host__frame" id="playerFrame">
     <div class="player-host__loader" id="playerLoader">
@@ -107,7 +89,6 @@
       <div class="player-host__loader-status" id="playerLoaderStatus"></div>
     </div>
   </div>
-
   <div class="player-host__chrome" aria-hidden="true">
     <div class="player-host__chrome-veil"></div>
     <div class="player-host__grip"></div>
@@ -116,7 +97,6 @@
     <div class="player-host__shield" id="miniShield"></div>
   </div>
 </div>
-
 <aside class="search" id="search" aria-hidden="true">
   <div class="search__head">
     <i class="ri-search-2-line"></i>
@@ -133,88 +113,65 @@
     <div class="search__results" id="searchResults" hidden></div>
   </div>
 </aside>
-
 <div class="toast" id="toast" aria-live="polite"></div>
-
 <div class="sheet" id="themeSheet" aria-hidden="true">
   <div class="sheet__panel">
-
     <div class="setting-row setting-row--highlight" id="pipRow">
       <div class="setting-row__icon"><i class="ri-picture-in-picture-2-line"></i></div>
       <div class="setting-row__text">
         <div class="setting-row__title">Mini player <span class="setting-row__badge">PiP</span></div>
         <div class="setting-row__sub">Float the video in a corner while you keep browsing.</div>
       </div>
-      <button class="switch" id="pipToggle" role="switch" aria-checked="true" aria-label="Toggle mini player">
-        <span class="switch__thumb"></span>
-      </button>
+      <button class="switch" id="pipToggle" role="switch" aria-checked="true" aria-label="Toggle mini player"><span class="switch__thumb"></span></button>
     </div>
-
     <div class="setting-row" id="dlRow">
       <div class="setting-row__icon"><i class="ri-download-cloud-2-line"></i></div>
       <div class="setting-row__text">
         <div class="setting-row__title">Downloads <span class="setting-row__badge setting-row__badge--alt">3rd-party</span></div>
         <div class="setting-row__sub">Show a download button on every title. Links open dl.peachify.top.</div>
       </div>
-      <button class="switch" id="dlToggle" role="switch" aria-checked="true" aria-label="Toggle downloads">
-        <span class="switch__thumb"></span>
-      </button>
+      <button class="switch" id="dlToggle" role="switch" aria-checked="true" aria-label="Toggle downloads"><span class="switch__thumb"></span></button>
     </div>
-
     <div class="setting-row" id="nsfwRow">
       <div class="setting-row__icon"><i class="ri-moon-clear-line"></i></div>
       <div class="setting-row__text">
         <div class="setting-row__title">After dark <span class="setting-row__badge setting-row__badge--alt">18+</span></div>
         <div class="setting-row__sub">Surface mature TMDb titles in shelves and search.</div>
       </div>
-      <button class="switch" id="nsfwToggle" role="switch" aria-checked="false" aria-label="Toggle NSFW filter">
-        <span class="switch__thumb"></span>
-      </button>
+      <button class="switch" id="nsfwToggle" role="switch" aria-checked="false" aria-label="Toggle NSFW filter"><span class="switch__thumb"></span></button>
     </div>
-
     <h3>Choose your accent</h3>
     <p>Tints every gradient, glow, and highlight across the app.</p>
     <div class="palette" id="palette"></div>
     <button class="btn-ghost" id="themeClose">Done</button>
   </div>
 </div>
-
 <div class="dl-modal" id="dlModal" aria-hidden="true" role="dialog" aria-labelledby="dlModalTitle">
   <div class="dl-modal__veil" data-dl-close></div>
   <div class="dl-modal__panel">
     <div class="dl-modal__kao">(╯°□°)╯︵ ┻━┻</div>
     <h2 class="dl-modal__title" id="dlModalTitle">Heads up — downloads are <em>third-party</em>.</h2>
-    <p class="dl-modal__body">
-      Animoweb does <strong>not</strong> host any files. The download button routes to <span class="mono">dl.peachify.top</span>,
-      a separate service we don't control. We <strong>strongly recommend</strong> browsing it with an ad-blocker
-      (uBlock Origin, Brave, AdGuard).
-    </p>
-    <p class="dl-modal__body dl-modal__body--warn">
-      If ads or pop-ups interrupt your experience, <em>we can't do anything about it</em>.
-      It's on you. Don't blame us. <span class="dl-modal__kao-inline">( ｡ •̀ ᴖ •́ ｡)💢</span>
-    </p>
-    <p class="dl-modal__hint">You can disable this feature anytime in <i class="ri-equalizer-3-line"></i> Settings → Downloads.</p>
+    <p class="dl-modal__body">Animoweb does <strong>not</strong> host any files. The download button routes to <span class="mono">dl.peachify.top</span>, a separate service we don't control. We <strong>strongly recommend</strong> browsing it with an ad-blocker.</p>
+    <p class="dl-modal__body dl-modal__body--warn">If ads or pop-ups interrupt your experience, <em>we can't do anything about it</em>. It's on you.</p>
+    <p class="dl-modal__hint">You can disable this feature anytime in <i class="ri-equalizer-3-line"></i> Settings &rarr; Downloads.</p>
     <div class="dl-modal__actions">
       <button class="btn-ghost" id="dlModalDisable">Disable downloads</button>
       <button class="btn-primary" id="dlModalAccept"><i class="ri-check-line"></i> I understand</button>
     </div>
   </div>
 </div>
-
 <div class="pwa-banner" id="pwaBanner" aria-hidden="true">
   <div class="pwa-banner__inner">
     <svg class="pwa-banner__icon" viewBox="0 0 64 64" aria-hidden="true"><use href="#omni-mark"/></svg>
     <div class="pwa-banner__text">
       <strong>Install Animoweb</strong>
-      <span>Add to home screen for the best experience — instant launch, fullscreen, offline-ready.</span>
+      <span>Add to home screen for the best experience.</span>
     </div>
     <button class="btn-primary btn-primary--sm" id="pwaInstall"><i class="ri-download-2-line"></i> Install</button>
     <button class="icon-btn pwa-banner__close" id="pwaDismiss" aria-label="Dismiss"><i class="ri-close-line"></i></button>
   </div>
 </div>
-
 <link rel="stylesheet" href="anime.css">
-
 <script src="config.js"></script>
 <script src="player.js"></script>
 <script src="anime.js"></script>
@@ -231,30 +188,19 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').cat
   if (window.matchMedia('(display-mode: standalone)').matches) return;
   if (navigator.standalone) return;
   window.addEventListener('beforeinstallprompt', function(e) {
-    e.preventDefault();
-    deferredPrompt = e;
+    e.preventDefault(); deferredPrompt = e;
     if (localStorage.getItem(STORE_KEY) === '1') return;
-    setTimeout(function() {
-      banner.classList.add('open');
-      banner.setAttribute('aria-hidden', 'false');
-    }, 3000);
+    setTimeout(function() { banner.classList.add('open'); banner.setAttribute('aria-hidden', 'false'); }, 3000);
   });
   installBtn.addEventListener('click', function() {
     if (!deferredPrompt) { banner.classList.remove('open'); return; }
     deferredPrompt.prompt();
-    deferredPrompt.userChoice.then(function(r) {
-      deferredPrompt = null;
-      banner.classList.remove('open');
-    });
+    deferredPrompt.userChoice.then(function() { deferredPrompt = null; banner.classList.remove('open'); });
   });
   dismissBtn.addEventListener('click', function() {
-    banner.classList.remove('open');
-    localStorage.setItem(STORE_KEY, '1');
+    banner.classList.remove('open'); localStorage.setItem(STORE_KEY, '1');
   });
-  window.addEventListener('appinstalled', function() {
-    banner.classList.remove('open');
-    deferredPrompt = null;
-  });
+  window.addEventListener('appinstalled', function() { banner.classList.remove('open'); deferredPrompt = null; });
 })();
 </script>
 </body>
