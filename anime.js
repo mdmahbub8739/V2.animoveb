@@ -1,17 +1,14 @@
 /* ═══════════════════════════════════════════════════════════════════════════
  *  ANIME MODULE — powered by Anikoto API + MegaPlay streaming
  *
- *  Replaces the old AniList GraphQL module. Now all anime browsing, detail,
- *  and playback flows through:
- *    • Anikoto API  (https://anikotoapi.site)  — catalog & episode IDs
- *    • MegaPlay     (https://megaplay.buzz)     — video embed iframes
+ *  Catalog:  https://anikotoapi.site
+ *    • GET /recent-anime?page=&per_page=   → { ok, data:[...], pagination }
+ *    • GET /series/{NUMERIC_ID}            → { ok, data:{ anime:{...}, episodes:[...] } }
+ *      ⚠ series endpoint requires the numeric `id`, NOT the slug.
  *
- *  Exports:
- *    window.AnikotoModule = {
- *      renderPage,         — anime home / browse (rails + grid)
- *      renderAnimeTitle,   — series detail page  (/anime-title/{slug})
- *      renderAnimeWatch,   — episode player page (/anime-watch/...)
- *    }
+ *  Stream:   https://megaplay.buzz/stream/s-2/{episode_embed_id}/{sub|dub}
+ *
+ *  Exports: window.AnikotoModule = { renderPage, renderAnimeTitle, renderAnimeWatch }
  * ═══════════════════════════════════════════════════════════════════════════ */
 (function (global) {
   'use strict';
@@ -36,8 +33,9 @@
     if (cached && Date.now() - cached.ts < ttl) return cached.data;
 
     const res = await fetch(url);
-    if (!res.ok) throw new Error(`Anikoto ${res.status}: ${url}`);
+    if (!res.ok) throw new Error(`Anikoto ${res.status}: ${path}`);
     const json = await res.json();
+    if (json && json.ok === false) throw new Error(json.error || 'Anikoto error');
     _apiCache.set(url, { data: json, ts: Date.now() });
     return json;
   }
@@ -77,12 +75,12 @@
     setTimeout(() => { t.classList.remove('is-visible'); setTimeout(() => t.remove(), 240); }, 2400);
   }
 
-  // ── Anime card (Anikoto data shape) ───────────────────────────────────────
+  // ── Anime card (Anikoto data shape) — links by NUMERIC id ─────────────────
   function animeCard(item) {
     const poster = item.poster || '';
     const title  = item.title || item.native || 'Unknown';
     const year   = item.year || '';
-    const slug   = item.slug || item.id;
+    const id     = item.id;          // numeric — required by /series/{id}
     const rating = item.rating && item.rating !== 'N/A'
       ? `<span class="title-card__rating"><i class="ri-star-fill"></i> ${html(item.rating)}</span>` : '';
 
@@ -96,13 +94,12 @@
       ? `<img src="${poster}" alt="${html(title)}" loading="lazy" decoding="async">`
       : `<div class="title-card__placeholder"><i class="ri-tv-2-line"></i></div>`;
 
-    return `<a class="title-card" href="/anime-title/${slug}" data-link
-               data-anikoto-id="${item.id}" data-slug="${html(slug)}"
-               data-poster="${html(poster)}" data-title="${html(title)}">
+    return `<a class="title-card" href="/anime-title/${id}" data-link
+               data-anikoto-id="${id}" data-poster="${html(poster)}" data-title="${html(title)}">
       <div class="title-card__poster"><div class="title-card__shimmer"></div>${art}${rating}${badgeHtml}</div>
       <div class="title-card__meta">
         <div class="title-card__title">${html(title)}</div>
-        <div class="title-card__sub">${year || '—'} · ${item.status || ''}</div>
+        <div class="title-card__sub">${year || '—'}${item.status ? ' · ' + html(item.status) : ''}</div>
       </div>
     </a>`;
   }
@@ -119,7 +116,7 @@
     </section>`;
   }
 
-  // ── Topnav auto-hide (shared with old module) ─────────────────────────────
+  // ── Topnav auto-hide ──────────────────────────────────────────────────────
   function initTopnavAutoHide() {
     if (window.__anTopnavWired) return;
     window.__anTopnavWired = true;
@@ -169,7 +166,6 @@
       const hasBanner = !!m.background_image;
       const title = m.title || m.native || 'Unknown';
       const desc = (m.description || '').replace(/<[^>]+>/g, '').split('. ')[0].slice(0, 200);
-      const slug = m.slug || m.id;
       const genres = m.terms_by_type?.genre || [];
 
       return `<div class="hero__slide ${i === 0 ? 'active' : ''}" data-i="${i}" data-bg-type="${hasBanner ? 'banner' : 'cover'}">
@@ -185,8 +181,8 @@
           </div>
           <p class="hero__synopsis">${html(desc)}${desc.length >= 200 ? '…' : ''}</p>
           <div class="hero__actions">
-            <a class="btn-primary" href="/anime-title/${slug}" data-link><i class="ri-play-fill"></i> Watch now</a>
-            <a class="btn-ghost" href="/anime-title/${slug}" data-link><i class="ri-information-line"></i> More info</a>
+            <a class="btn-primary" href="/anime-title/${m.id}" data-link><i class="ri-play-fill"></i> Watch now</a>
+            <a class="btn-ghost" href="/anime-title/${m.id}" data-link><i class="ri-information-line"></i> More info</a>
           </div>
         </div>
       </div>`;
@@ -245,8 +241,8 @@
   async function renderPage(view) {
     view.innerHTML = `
       ${skHero()}
-      ${sectionHtml('an-latest',    'Latest <em>updates</em>',        'Recently updated anime.')}
-      ${sectionHtml('an-airing',    'Currently <em>airing</em>',      'Shows airing this season.')}
+      ${sectionHtml('an-latest', 'Latest <em>updates</em>', 'Recently updated anime.')}
+      ${sectionHtml('an-airing', 'Currently <em>airing</em>', 'Shows airing this season.')}
       <section class="section" id="an-browse">
         <header class="section__head">
           <div>
@@ -259,28 +255,23 @@
       </section>
     `;
 
-    // Fetch page 1 — use for hero + rails
     try {
       const res = await anikoto(`/recent-anime?page=1&per_page=${PER_PAGE}`);
       const items = res.data || [];
 
-      // Hero: pick items with background_image or poster
       paintHero(view, items);
-
-      // Latest rail: all page-1 items
       paintRailFromItems(view, '#an-latest', items);
 
-      // Airing rail: filter Currently Airing
       const airing = items.filter(i => i.status === 'Currently Airing');
       paintRailFromItems(view, '#an-airing', airing.length ? airing : items.slice(0, 10));
     } catch (e) {
       console.error('[Anikoto] Failed to load home data', e);
       const hero = view.querySelector('.hero');
       if (hero) hero.outerHTML = '';
-      paintRailFromItems(view, '#an-latest', []);
+      const sec = view.querySelector('#an-latest');
+      if (sec) sec.innerHTML = `<p class="an-empty">Couldn't load anime. ${html(e.message)}</p>`;
     }
 
-    // Browse grid (infinite)
     setupBrowseGrid(view);
   }
 
@@ -289,53 +280,34 @@
     const loadBtn = view.querySelector('#anLoadMore');
     let page = 1, loading = false, hasMore = true;
 
-    async function load(reset = false) {
-      if (loading || (!hasMore && !reset)) return;
-      if (reset) { page = 1; hasMore = true; grid.innerHTML = Array.from({ length: 18 }, skCard).join(''); }
+    async function load() {
+      if (loading || !hasMore) return;
       loading = true;
+      if (loadBtn) loadBtn.disabled = true;
       try {
-        page = reset ? 2 : page;  // page 1 already loaded for rails
-        if (reset) page = 1;
         const res = await anikoto(`/recent-anime?page=${page}&per_page=${PER_PAGE}`);
         const items = res.data || [];
-        if (reset) grid.innerHTML = '';
+        if (page === 1) grid.innerHTML = '';
         grid.insertAdjacentHTML('beforeend', items.map(animeCard).join(''));
         hasMore = res.pagination ? page < res.pagination.total_pages : items.length >= PER_PAGE;
         page++;
-      } catch {
-        if (reset) grid.innerHTML = '<p class="an-empty">Failed to load. Try again.</p>';
+      } catch (e) {
+        if (page === 1) grid.innerHTML = `<p class="an-empty">Failed to load. ${html(e.message)}</p>`;
       }
       loading = false;
-      if (loadBtn) loadBtn.style.display = hasMore ? '' : 'none';
+      if (loadBtn) { loadBtn.disabled = false; loadBtn.style.display = hasMore ? '' : 'none'; }
     }
 
-    loadBtn?.addEventListener('click', () => load(false));
-    // Initial load: start from page 2 since page 1 is already shown in rails
-    (async () => {
-      grid.innerHTML = '';
-      page = 2;
-      loading = true;
-      try {
-        const res = await anikoto(`/recent-anime?page=2&per_page=${PER_PAGE}`);
-        const items = res.data || [];
-        grid.innerHTML = items.map(animeCard).join('');
-        hasMore = res.pagination ? 2 < res.pagination.total_pages : items.length >= PER_PAGE;
-        page = 3;
-      } catch {
-        grid.innerHTML = '<p class="an-empty">Failed to load.</p>';
-      }
-      loading = false;
-      if (loadBtn) loadBtn.style.display = hasMore ? '' : 'none';
-    })();
+    loadBtn?.addEventListener('click', load);
+    load();
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  renderAnimeTitle — Series detail (/anime-title/{slug-or-id})
+  //  renderAnimeTitle — Series detail (/anime-title/{NUMERIC_ID})
   // ═══════════════════════════════════════════════════════════════════════════
-  async function renderAnimeTitle(slug) {
+  async function renderAnimeTitle(id) {
     const view = $('#view');
 
-    // Show skeleton
     view.innerHTML = `
       <section class="watch-page" style="max-width:1100px;margin:0 auto;padding:20px 16px">
         <div class="watch-page__bar">
@@ -352,26 +324,22 @@
     `;
 
     try {
-      const res = await anikoto(`/series/${encodeURIComponent(slug)}`);
-      const data = res.data || res;
+      const res = await anikoto(`/series/${encodeURIComponent(id)}`);
+      const payload  = res.data || {};
+      const data     = payload.anime || {};
+      const episodes = Array.isArray(payload.episodes) ? payload.episodes : [];
 
-      const title    = data.title || data.native || 'Unknown';
-      const poster   = data.poster || '';
-      const banner   = data.background_image || poster;
-      const desc     = (data.description || '').replace(/<[^>]+>/g, '');
-      const year     = data.year || '';
-      const status   = data.status || '';
-      const rating   = data.rating && data.rating !== 'N/A' ? data.rating : '';
-      const genres   = data.terms_by_type?.genre || [];
-      const studios  = data.terms_by_type?.studios || [];
-      const episodes = data.episodes_detail || data.episodes_data || [];
-      const hasSub   = data.is_sub && data.is_sub > 0;
-      const hasDub   = data.is_dub && data.is_dub > 0;
-      const aniId    = data.ani_id || '';
-      const malId    = data.mal_id || '';
-
-      // Group episodes by "season" attribute if available, else show flat
-      const epList = Array.isArray(episodes) ? episodes : [];
+      const title   = data.title || data.native || 'Unknown';
+      const poster  = data.poster || '';
+      const banner  = data.background_image || poster;
+      const desc    = (data.description || '').replace(/<[^>]+>/g, '');
+      const year    = data.year || '';
+      const status  = data.status || '';
+      const rating  = data.rating && data.rating !== 'N/A' ? data.rating : '';
+      const genres  = data.terms_by_type?.genre || [];
+      const studios = data.terms_by_type?.studios || [];
+      const hasSub  = data.is_sub && data.is_sub > 0;
+      const hasDub  = data.is_dub && data.is_dub > 0;
 
       view.innerHTML = `
         <div class="anime-detail">
@@ -388,9 +356,9 @@
                 ${data.alternative ? `<div class="anime-detail__alt">${html(data.alternative)}</div>` : ''}
                 <div class="anime-detail__meta">
                   ${year ? `<span>${year}</span><span class="dot"></span>` : ''}
-                  ${status ? `<span class="mono">${html(status).toUpperCase()}</span><span class="dot"></span>` : ''}
-                  ${rating ? `<span style="color:var(--accent)"><i class="ri-star-fill"></i> ${html(rating)}</span><span class="dot"></span>` : ''}
-                  ${hasSub ? '<span class="chip chip--sm">SUB</span>' : ''}
+                  ${status ? `<span class="mono">${html(status).toUpperCase()}</span>` : ''}
+                  ${rating ? `<span class="dot"></span><span style="color:var(--accent)"><i class="ri-star-fill"></i> ${html(rating)}</span>` : ''}
+                  ${hasSub ? '<span class="dot"></span><span class="chip chip--sm">SUB</span>' : ''}
                   ${hasDub ? '<span class="chip chip--sm" style="margin-left:4px">DUB</span>' : ''}
                 </div>
                 ${genres.length ? `<div class="anime-detail__genres">${genres.map(g => `<span class="chip">${html(g)}</span>`).join('')}</div>` : ''}
@@ -400,28 +368,25 @@
             </div>
 
             <div class="anime-detail__episodes">
-              <h2 class="section__title" style="margin-bottom:16px">Episodes <em>(${epList.length})</em></h2>
+              <h2 class="section__title" style="margin-bottom:16px">Episodes <em>(${episodes.length})</em></h2>
 
               ${hasSub && hasDub ? `
               <div class="anime-detail__lang-toggle" style="margin-bottom:16px">
-                <button class="chip active" data-lang="sub">SUB</button>
-                <button class="chip" data-lang="dub">DUB</button>
+                <button class="chip ${DEF_LANG === 'sub' ? 'active' : ''}" data-lang="sub">SUB</button>
+                <button class="chip ${DEF_LANG === 'dub' ? 'active' : ''}" data-lang="dub">DUB</button>
               </div>` : ''}
 
               <div class="anime-detail__ep-grid" id="anEpGrid">
-                ${epList.length
-                  ? epList.map((ep, i) => {
-                    const epNum    = ep.episode_no ?? ep.number ?? (i + 1);
-                    const epTitle  = ep.title || `Episode ${epNum}`;
-                    const embedId  = ep.episode_embed_id || ep.embed_id || '';
-                    const epSlug   = data.slug || data.id;
-                    const lang     = DEF_LANG;
-                    const epPoster = ep.thumbnail || ep.poster || poster;
-
-                    return `<a class="episode anime-episode" href="/anime-watch/${epSlug}/${embedId}/${lang}" data-link
+                ${episodes.length
+                  ? episodes.map((ep) => {
+                    const epNum   = ep.number;
+                    const epTitle = ep.title || `Episode ${epNum}`;
+                    const embedId = ep.episode_embed_id || '';
+                    const lang    = DEF_LANG;
+                    return `<a class="episode anime-episode" href="/anime-watch/${id}/${embedId}/${lang}" data-link
                                data-embed-id="${embedId}" data-ep-num="${epNum}">
                       <div class="episode__thumb">
-                        ${epPoster ? `<img src="${epPoster}" alt="Ep ${epNum}" loading="lazy">` : ''}
+                        ${poster ? `<img src="${poster}" alt="Ep ${epNum}" loading="lazy">` : ''}
                         <div class="episode__play"><i class="ri-play-circle-fill"></i></div>
                       </div>
                       <div class="episode__body">
@@ -438,19 +403,15 @@
         </div>
       `;
 
-      // Wire language toggle
+      // Language toggle — rewrite episode hrefs
       const langBtns = view.querySelectorAll('.anime-detail__lang-toggle .chip');
       langBtns.forEach(btn => {
         btn.addEventListener('click', () => {
           langBtns.forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           const lang = btn.dataset.lang;
-
-          // Update all episode links
           view.querySelectorAll('.anime-episode').forEach(a => {
-            const embedId = a.dataset.embedId;
-            const s = data.slug || data.id;
-            a.setAttribute('href', `/anime-watch/${s}/${embedId}/${lang}`);
+            a.setAttribute('href', `/anime-watch/${id}/${a.dataset.embedId}/${lang}`);
           });
         });
       });
@@ -468,18 +429,17 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  //  renderAnimeWatch — Episode player (/anime-watch/{slug}/{embedId}/{lang})
+  //  renderAnimeWatch — Episode player (/anime-watch/{ID}/{embedId}/{lang})
   // ═══════════════════════════════════════════════════════════════════════════
-  async function renderAnimeWatch(slug, embedId, language) {
+  async function renderAnimeWatch(id, embedId, language) {
     const lang = language || DEF_LANG;
     const view = $('#view');
     const streamUrl = `${MEGAPLAY}/stream/s-2/${embedId}/${lang}`;
 
-    // Skeleton
     view.innerHTML = `
       <section class="watch-page">
         <div class="watch-page__bar">
-          <button class="icon-btn" onclick="history.length>1 ? history.back() : OMNIFLIX.go('/anime-title/${html(slug)}')"><i class="ri-arrow-left-line"></i></button>
+          <button class="icon-btn" onclick="history.length>1 ? history.back() : OMNIFLIX.go('/anime-title/${html(id)}')"><i class="ri-arrow-left-line"></i></button>
           <div class="watch-page__crumb"><div class="sk sk--line sk--meta" style="width:240px"></div></div>
           <div class="anime-watch__lang-btns">
             <button class="chip ${lang === 'sub' ? 'active' : ''}" data-lang="sub">SUB</button>
@@ -503,50 +463,42 @@
       </section>
     `;
 
-    // Wire sub/dub toggle on watch page
+    // Sub/dub toggle navigates to same episode in other language
     view.querySelectorAll('.anime-watch__lang-btns .chip').forEach(btn => {
       btn.addEventListener('click', () => {
         const newLang = btn.dataset.lang;
         if (newLang !== lang && global.OMNIFLIX?.go) {
-          global.OMNIFLIX.go(`/anime-watch/${slug}/${embedId}/${newLang}`);
+          global.OMNIFLIX.go(`/anime-watch/${id}/${embedId}/${newLang}`);
         }
       });
     });
 
-    // MegaPlay postMessage listener
+    // MegaPlay postMessage — auto-next + progress
     const msgHandler = function (event) {
       let data = event.data;
       if (typeof data === 'string') {
         try { data = JSON.parse(data); } catch (e) { return; }
       }
+      if (!data || typeof data !== 'object') return;
 
-      // Episode complete → auto-next
       if (data.event === 'complete') {
-        const nextLink = view.querySelector(`.anime-episode.is-next`);
-        if (nextLink) {
-          toast('Loading next episode…');
-          nextLink.click();
-        }
+        const nextLink = view.querySelector('.anime-episode.is-next');
+        if (nextLink) { toast('Loading next episode…'); nextLink.click(); }
       }
-
-      // Progress tracking
       if (data.event === 'time' || data.type === 'watching-log') {
-        // Can store in localStorage for watch history
         try {
           const store = JSON.parse(localStorage.getItem('animeWatchProgress') || '{}');
           store[embedId] = {
             time: data.time || data.currentTime || 0,
             duration: data.duration || 0,
             percent: data.percent || 0,
-            slug, lang,
-            ts: Date.now()
+            id, lang, ts: Date.now()
           };
           localStorage.setItem('animeWatchProgress', JSON.stringify(store));
         } catch (_) {}
       }
     };
     window.addEventListener('message', msgHandler);
-    // Cleanup when navigating away (next route call will replace #view)
     const observer = new MutationObserver(() => {
       if (!view.querySelector('.anime-watch__player')) {
         window.removeEventListener('message', msgHandler);
@@ -555,47 +507,42 @@
     });
     observer.observe(view, { childList: true });
 
-    // Load series data to show title + episode list
+    // Load series data for title + episode list
     try {
-      const res = await anikoto(`/series/${encodeURIComponent(slug)}`);
-      const data = res.data || res;
-      const title = data.title || data.native || 'Unknown';
-      const episodes = data.episodes_detail || data.episodes_data || [];
-      const epList = Array.isArray(episodes) ? episodes : [];
+      const res = await anikoto(`/series/${encodeURIComponent(id)}`);
+      const payload  = res.data || {};
+      const data     = payload.anime || {};
+      const episodes = Array.isArray(payload.episodes) ? payload.episodes : [];
+      const title    = data.title || data.native || 'Unknown';
 
-      // Find current episode
-      const currentIdx = epList.findIndex(ep => String(ep.episode_embed_id || ep.embed_id) === String(embedId));
-      const currentEp = currentIdx >= 0 ? epList[currentIdx] : null;
-      const epNum = currentEp ? (currentEp.episode_no ?? currentEp.number ?? currentIdx + 1) : '?';
+      const currentIdx = episodes.findIndex(ep => String(ep.episode_embed_id) === String(embedId));
+      const currentEp  = currentIdx >= 0 ? episodes[currentIdx] : null;
+      const epNum      = currentEp ? currentEp.number : '?';
 
-      // Update crumb
       const crumb = view.querySelector('.watch-page__crumb');
       if (crumb) {
         crumb.innerHTML = `<span>Anime</span><span class="sep">·</span><b>${html(title)}</b><span class="sep">·</span><span>Episode ${epNum}</span>`;
       }
 
-      // Info block
       const infoBlock = view.querySelector('.watch-page__info');
       if (infoBlock) {
         infoBlock.innerHTML = `
           <h1 class="watch-page__title">${html(title)} — <em>Episode ${epNum}</em></h1>
           ${currentEp?.title ? `<div class="serif" style="font-style:italic;color:var(--text-dim);font-size:18px;margin-top:4px">${html(currentEp.title)}</div>` : ''}
-          <a class="btn-ghost" href="/anime-title/${slug}" data-link style="margin-top:12px"><i class="ri-information-line"></i> Series details</a>
+          <a class="btn-ghost" href="/anime-title/${id}" data-link style="margin-top:12px"><i class="ri-information-line"></i> Series details</a>
         `;
       }
 
-      // Episode list
       const epListEl = view.querySelector('#anWatchEpList');
-      if (epListEl && epList.length) {
-        epListEl.innerHTML = epList.map((ep, i) => {
-          const num = ep.episode_no ?? ep.number ?? (i + 1);
-          const eId = ep.episode_embed_id || ep.embed_id || '';
+      if (epListEl && episodes.length) {
+        epListEl.innerHTML = episodes.map((ep, i) => {
+          const num = ep.number;
+          const eId = ep.episode_embed_id || '';
           const isCurrent = String(eId) === String(embedId);
           const isNext = i === currentIdx + 1;
           const epTitle = ep.title || `Episode ${num}`;
-
           return `<a class="anime-episode episode ${isCurrent ? 'is-playing' : ''} ${isNext ? 'is-next' : ''}"
-                     href="/anime-watch/${slug}/${eId}/${lang}" data-link data-embed-id="${eId}">
+                     href="/anime-watch/${id}/${eId}/${lang}" data-link data-embed-id="${eId}">
             <div class="episode__body" style="padding:8px 12px">
               <div class="episode__number" style="${isCurrent ? 'color:var(--accent)' : ''}">
                 ${isCurrent ? '<i class="ri-play-fill"></i> ' : ''}E${num}
@@ -605,9 +552,10 @@
           </a>`;
         }).join('');
 
-        // Scroll current episode into view
         const playing = epListEl.querySelector('.is-playing');
         if (playing) playing.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } else if (epListEl) {
+        epListEl.innerHTML = '<p class="an-empty">No episode list available.</p>';
       }
 
     } catch (err) {
@@ -622,9 +570,6 @@
 
   // ── Expose ────────────────────────────────────────────────────────────────
   global.AnikotoModule = { renderPage, renderAnimeTitle, renderAnimeWatch };
-
-  // Backward compat: keep AniListModule pointing to the same renderPage
-  // so the router doesn't break if it still references AniListModule
-  global.AniListModule = { renderPage };
+  global.AniListModule = { renderPage };  // back-compat
 
 })(window);
