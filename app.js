@@ -396,6 +396,8 @@ if ('navigation' in window) {
     movies: () => renderBrowse('movie'),
     tv: () => renderBrowse('tv'),
     anime: renderAnime,
+    'anime-title': renderAnimeTitleRoute,
+    'anime-watch': renderAnimeWatchRoute,
     people: renderPeople,
     list: renderList,
     title: renderTitleDetail,
@@ -412,7 +414,9 @@ if ('navigation' in window) {
   }
 
   function setActiveNav(name) {
-    const target = ['home','movies','tv','anime','people','list'].includes(name) ? name : null;
+    // anime-title and anime-watch should highlight the Anime nav tab
+    const resolved = (name === 'anime-title' || name === 'anime-watch') ? 'anime' : name;
+    const target = ['home','movies','tv','anime','people','list'].includes(resolved) ? resolved : null;
     $$('.topnav__links a, .bottomnav a').forEach(a => {
       a.classList.toggle('active', a.dataset.route === target);
     });
@@ -850,18 +854,38 @@ if ('navigation' in window) {
     load();
   }
 
-  // ───── ANIME — powered by AniList ───────────────────────────────────────────
+  // ───── ANIME — powered by Anikoto API + MegaPlay ────────────────────────
   async function renderAnime() {
     const view = $('#view');
     view.innerHTML = '<div id="alViewRoot" class="al-view-root"></div>';
-    if (window.AniListModule) {
+    if (window.AnikotoModule) {
+      await window.AnikotoModule.renderPage(document.getElementById('alViewRoot'));
+    } else if (window.AniListModule) {
       await window.AniListModule.renderPage(document.getElementById('alViewRoot'));
     } else {
-      view.innerHTML = '<p style="color:#f87171;padding:40px">AniList module not loaded.</p>';
+      view.innerHTML = '<p style="color:#f87171;padding:40px">Anime module not loaded.</p>';
     }
   }
 
-  // Stub — AniList module handles its own grid
+  // ───── ANIME TITLE — series detail via Anikoto ─────────────────────────
+  async function renderAnimeTitleRoute(slug) {
+    if (window.AnikotoModule) {
+      await window.AnikotoModule.renderAnimeTitle(slug);
+    } else {
+      $('#view').innerHTML = '<p style="color:#f87171;padding:40px">Anime module not loaded.</p>';
+    }
+  }
+
+  // ───── ANIME WATCH — episode player via MegaPlay ───────────────────────
+  async function renderAnimeWatchRoute(slug, embedId, language) {
+    if (window.AnikotoModule) {
+      await window.AnikotoModule.renderAnimeWatch(slug, embedId, language);
+    } else {
+      $('#view').innerHTML = '<p style="color:#f87171;padding:40px">Anime module not loaded.</p>';
+    }
+  }
+
+  // Stub — Anikoto module handles its own grid
   async function loadAnimeGrid() {}
 
 
