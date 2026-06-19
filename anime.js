@@ -188,11 +188,21 @@
     </section>`;
   }
 
-  function resolveAndOpen(anilistId, format, poster, title) {
-    // Anime now streams via MegaPlay using the AniList ID directly (no TMDB mapping).
-    // Navigate to the AniList-powered detail page.
-    if (global.OMNIFLIX?.go) {
-      global.OMNIFLIX.go(`/anime-title/${anilistId}`);
+  async function resolveAndOpen(anilistId, format, poster, title) {
+    showResolve(poster, title);
+    try {
+      const m = await prefetchMapping(anilistId);
+      const tmdb = m?.mappings?.themoviedb_id;
+      if (tmdb && global.OMNIFLIX?.go) {
+        const type = (format === 'MOVIE') ? 'movie' : 'tv';
+        setTimeout(() => { hideResolve(); global.OMNIFLIX.go(`/title/${type}/${tmdb}`); }, 320);
+      } else {
+        hideResolve();
+        toast('Stream not available for this title');
+      }
+    } catch {
+      hideResolve();
+      toast('Could not load this title');
     }
   }
 
@@ -258,7 +268,7 @@
       <div class="hero__backdrop" style="background-image:url(${bg})"></div>
       <div class="hero__scrim"></div>
       <div class="hero__content">
-        <span class="eyebrow"><span class="dot"></span> Featured · Anime</span>
+        <span class="eyebrow"><span class="dot"></span> Featured &middot; Anime</span>
         <h1 class="hero__title">${html(titleOf(m))}</h1>
         <div class="hero__meta">
           ${score ? `<span class="score"><i class="ri-star-fill"></i> ${score}%</span><span class="dot"></span>` : ''}
@@ -266,7 +276,7 @@
           <span class="dot"></span>
           <span class="mono">${fmtFormat(m.format).toUpperCase()}</span>
         </div>
-        <p class="hero__synopsis">${html(desc)}${desc.length >= 200 ? '…' : ''}</p>
+        <p class="hero__synopsis">${html(desc)}${desc.length >= 200 ? '&hellip;' : ''}</p>
         <div class="hero__actions">
           <button class="btn-primary" data-anilist="${m.id}" data-format="${m.format || ''}" data-poster="${html(coverOf(m))}" data-title="${html(titleOf(m))}"><i class="ri-play-fill"></i> Watch now</button>
           <button class="btn-ghost" data-anilist="${m.id}" data-format="${m.format || ''}" data-poster="${html(coverOf(m))}" data-title="${html(titleOf(m))}"><i class="ri-information-line"></i> More info</button>
@@ -514,262 +524,5 @@
   }
   initTopnavAutoHide();
 
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  //  ANIME DETAIL + WATCH — AniList data (CORS-safe) + MegaPlay streaming
-  //  MegaPlay streams by AniList ID:  /stream/ani/{anilistId}/{epNum}/{language}
-  //  (iframe embeds need no CORS, so this works in the browser.)
-  // ═══════════════════════════════════════════════════════════════════════════
-  const _CFG_AN     = global.OMNIFLIX_CONFIG || {};
-  const MEGAPLAY    = _CFG_AN.MEGAPLAY_BASE || 'https://megaplay.buzz';
-  const ANIME_LANG  = _CFG_AN.ANIME_DEFAULT_LANGUAGE || 'sub';
-
-  const DETAIL_QUERY = `
-    query ($id: Int) {
-      Media(id: $id, type: ANIME) {
-        id
-        title { romaji english native }
-        coverImage { extraLarge large color }
-        bannerImage
-        description(asHtml: false)
-        genres
-        averageScore
-        format
-        seasonYear
-        status
-        duration
-        episodes
-        nextAiringEpisode { episode }
-        studios(isMain: true) { nodes { name } }
-      }
-    }
-  `;
-
-  function episodeCount(m) {
-    if (m.format === 'MOVIE') return 1;
-    if (m.episodes && m.episodes > 0) return m.episodes;
-    if (m.nextAiringEpisode?.episode) return Math.max(1, m.nextAiringEpisode.episode - 1);
-    return 12; // sane fallback for ongoing titles with no count yet
-  }
-
-  async function renderAnimeTitle(anilistId) {
-    const view = $('#view');
-    view.innerHTML = `
-      <section class="watch-page" style="max-width:1100px;margin:0 auto;padding:20px 16px">
-        <div class="watch-page__bar">
-          <button class="icon-btn" onclick="history.length>1 ? history.back() : OMNIFLIX.go('/anime')"><i class="ri-arrow-left-line"></i></button>
-          <div class="watch-page__crumb"><div class="sk sk--line sk--meta" style="width:240px"></div></div>
-        </div>
-        <div style="margin-top:24px">
-          <div class="sk sk--line sk--title-xl" style="width:60%"></div>
-          <div class="sk sk--line sk--meta" style="width:40%;margin-top:12px"></div>
-          <div class="sk sk--line sk--meta" style="margin-top:8px"></div>
-          <div class="sk sk--line sk--meta" style="width:90%;margin-top:8px"></div>
-        </div>
-      </section>`;
-
-    try {
-      const data = await gql(DETAIL_QUERY, { id: +anilistId });
-      const m = data.Media;
-      if (!m) throw new Error('Title not found');
-
-      const title   = titleOf(m);
-      const poster  = coverOf(m);
-      const banner  = m.bannerImage || poster;
-      const desc    = (m.description || '').replace(/<[^>]+>/g, '');
-      const year    = yearOf(m);
-      const status  = (m.status || '').replace(/_/g, ' ');
-      const genres  = m.genres || [];
-      const studios = (m.studios?.nodes || []).map(s => s.name);
-      const isMovie = m.format === 'MOVIE';
-      const epCount = episodeCount(m);
-
-      const eps = Array.from({ length: epCount }, (_, i) => i + 1);
-
-      view.innerHTML = `
-        <div class="anime-detail">
-          <div class="anime-detail__banner" style="background-image:url(${banner})">
-            <div class="anime-detail__banner-scrim"></div>
-          </div>
-          <section class="anime-detail__body">
-            <div class="anime-detail__top">
-              ${poster ? `<img class="anime-detail__poster" src="${poster}" alt="${html(title)}">` : ''}
-              <div class="anime-detail__info">
-                <button class="icon-btn anime-detail__back" onclick="history.length>1 ? history.back() : OMNIFLIX.go('/anime')"><i class="ri-arrow-left-line"></i></button>
-                <h1 class="anime-detail__title">${html(title)}</h1>
-                ${m.title?.native ? `<div class="anime-detail__alt">${html(m.title.native)}</div>` : ''}
-                <div class="anime-detail__meta">
-                  ${year ? `<span>${year}</span>` : ''}
-                  ${status ? `<span class="dot"></span><span class="mono">${html(status).toUpperCase()}</span>` : ''}
-                  ${m.averageScore ? `<span class="dot"></span><span style="color:var(--accent)"><i class="ri-star-fill"></i> ${fmtScore(m.averageScore)}</span>` : ''}
-                  ${isMovie ? '<span class="dot"></span><span class="chip chip--sm">FILM</span>' : ''}
-                </div>
-                ${genres.length ? `<div class="anime-detail__genres">${genres.map(g => `<span class="chip">${html(g)}</span>`).join('')}</div>` : ''}
-                ${studios.length ? `<div class="anime-detail__studios" style="margin-top:6px;color:var(--text-dim);font-size:13px">Studio: ${html(studios.join(', '))}</div>` : ''}
-                ${desc ? `<p class="anime-detail__desc">${html(desc)}</p>` : ''}
-                <div class="anime-detail__lang-toggle" style="margin-top:16px">
-                  <button class="chip ${ANIME_LANG === 'sub' ? 'active' : ''}" data-lang="sub">SUB</button>
-                  <button class="chip ${ANIME_LANG === 'dub' ? 'active' : ''}" data-lang="dub">DUB</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="anime-detail__episodes">
-              <h2 class="section__title" style="margin-bottom:16px">Episodes <em>(${epCount})</em></h2>
-              <div class="anime-detail__ep-grid" id="anEpGrid">
-                ${eps.map(n => `
-                  <a class="episode anime-episode" href="/anime-watch/${anilistId}/${n}/${ANIME_LANG}" data-link data-ep="${n}">
-                    <div class="episode__thumb">
-                      ${poster ? `<img src="${poster}" alt="Ep ${n}" loading="lazy">` : ''}
-                      <div class="episode__play"><i class="ri-play-circle-fill"></i></div>
-                    </div>
-                    <div class="episode__body">
-                      <div class="episode__number">${isMovie ? 'MOVIE' : 'E' + n}</div>
-                      <div class="episode__title">${isMovie ? html(title) : 'Episode ' + n}</div>
-                    </div>
-                  </a>`).join('')}
-              </div>
-            </div>
-          </section>
-        </div>`;
-
-      // Language toggle rewrites episode links
-      const langBtns = view.querySelectorAll('.anime-detail__lang-toggle .chip');
-      langBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          langBtns.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          const lang = btn.dataset.lang;
-          view.querySelectorAll('.anime-episode').forEach(a => {
-            a.setAttribute('href', `/anime-watch/${anilistId}/${a.dataset.ep}/${lang}`);
-          });
-        });
-      });
-
-    } catch (err) {
-      console.error('[Anime] detail load failed', err);
-      view.innerHTML = `
-        <section style="padding:60px 20px;text-align:center">
-          <h2 style="color:var(--text)">Couldn't load this anime</h2>
-          <p style="color:var(--text-dim);margin-top:8px">${html(err.message)}</p>
-          <a class="btn-ghost" href="/anime" data-link style="margin-top:20px"><i class="ri-arrow-left-line"></i> Back to anime</a>
-        </section>`;
-    }
-  }
-
-  async function renderAnimeWatch(anilistId, epNum, language) {
-    const lang = language || ANIME_LANG;
-    const ep   = epNum || 1;
-    const view = $('#view');
-    const streamUrl = `${MEGAPLAY}/stream/ani/${anilistId}/${ep}/${lang}`;
-
-    view.innerHTML = `
-      <section class="watch-page">
-        <div class="watch-page__bar">
-          <button class="icon-btn" onclick="history.length>1 ? history.back() : OMNIFLIX.go('/anime-title/${html(anilistId)}')"><i class="ri-arrow-left-line"></i></button>
-          <div class="watch-page__crumb"><div class="sk sk--line sk--meta" style="width:240px"></div></div>
-          <div class="anime-watch__lang-btns">
-            <button class="chip ${lang === 'sub' ? 'active' : ''}" data-lang="sub">SUB</button>
-            <button class="chip ${lang === 'dub' ? 'active' : ''}" data-lang="dub">DUB</button>
-          </div>
-        </div>
-        <div class="anime-watch__player">
-          <iframe src="${streamUrl}" width="100%" height="100%" frameborder="0" scrolling="no"
-                  allowfullscreen allow="autoplay; encrypted-media; fullscreen"></iframe>
-        </div>
-        <div class="watch-page__info" style="padding:16px">
-          <div class="sk sk--line sk--title-xl" style="width:50%"></div>
-          <div class="sk sk--line sk--meta" style="width:30%;margin-top:8px"></div>
-        </div>
-        <div class="anime-watch__episodes">
-          <h3 class="section__title" style="padding:0 16px;margin-bottom:12px">Episodes</h3>
-          <div class="anime-watch__ep-list" id="anWatchEpList">${Array.from({ length: 6 }, skTitleCard).join('')}</div>
-        </div>
-      </section>`;
-
-    // Sub/dub toggle
-    view.querySelectorAll('.anime-watch__lang-btns .chip').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const newLang = btn.dataset.lang;
-        if (newLang !== lang && global.OMNIFLIX?.go) {
-          global.OMNIFLIX.go(`/anime-watch/${anilistId}/${ep}/${newLang}`);
-        }
-      });
-    });
-
-    // MegaPlay postMessage — auto-next + progress
-    const msgHandler = function (event) {
-      let data = event.data;
-      if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { return; } }
-      if (!data || typeof data !== 'object') return;
-      if (data.event === 'complete') {
-        const nextLink = view.querySelector('.anime-episode.is-next');
-        if (nextLink) { toast('Loading next episode…'); nextLink.click(); }
-      }
-      if (data.event === 'time' || data.type === 'watching-log') {
-        try {
-          const store = JSON.parse(localStorage.getItem('animeWatchProgress') || '{}');
-          store[`${anilistId}:${ep}`] = {
-            time: data.time || data.currentTime || 0,
-            duration: data.duration || 0,
-            percent: data.percent || 0, lang, ts: Date.now()
-          };
-          localStorage.setItem('animeWatchProgress', JSON.stringify(store));
-        } catch (_) {}
-      }
-    };
-    window.addEventListener('message', msgHandler);
-    const observer = new MutationObserver(() => {
-      if (!view.querySelector('.anime-watch__player')) {
-        window.removeEventListener('message', msgHandler);
-        observer.disconnect();
-      }
-    });
-    observer.observe(view, { childList: true });
-
-    // Load AniList detail for title + episode list
-    try {
-      const data = await gql(DETAIL_QUERY, { id: +anilistId });
-      const m = data.Media;
-      const title = titleOf(m);
-      const epCount = episodeCount(m);
-      const isMovie = m.format === 'MOVIE';
-
-      const crumb = view.querySelector('.watch-page__crumb');
-      if (crumb) crumb.innerHTML = `<span>Anime</span><span class="sep">·</span><b>${html(title)}</b>${isMovie ? '' : `<span class="sep">·</span><span>Episode ${ep}</span>`}`;
-
-      const infoBlock = view.querySelector('.watch-page__info');
-      if (infoBlock) infoBlock.innerHTML = `
-        <h1 class="watch-page__title">${html(title)}${isMovie ? '' : ` — <em>Episode ${ep}</em>`}</h1>
-        <a class="btn-ghost" href="/anime-title/${anilistId}" data-link style="margin-top:12px"><i class="ri-information-line"></i> Series details</a>`;
-
-      const epListEl = view.querySelector('#anWatchEpList');
-      if (epListEl) {
-        if (isMovie) {
-          epListEl.parentElement.style.display = 'none';
-        } else {
-          const eps = Array.from({ length: epCount }, (_, i) => i + 1);
-          epListEl.innerHTML = eps.map(n => {
-            const isCurrent = String(n) === String(ep);
-            const isNext = n === (+ep + 1);
-            return `<a class="anime-episode episode ${isCurrent ? 'is-playing' : ''} ${isNext ? 'is-next' : ''}"
-                       href="/anime-watch/${anilistId}/${n}/${lang}" data-link data-ep="${n}">
-              <div class="episode__body" style="padding:8px 12px">
-                <div class="episode__number" style="${isCurrent ? 'color:var(--accent)' : ''}">${isCurrent ? '<i class="ri-play-fill"></i> ' : ''}E${n}</div>
-                <div class="episode__title">Episode ${n}</div>
-              </div>
-            </a>`;
-          }).join('');
-          const playing = epListEl.querySelector('.is-playing');
-          if (playing) playing.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }
-    } catch (err) {
-      console.error('[Anime] watch info load failed', err);
-    }
-  }
-
-
-  global.AniListModule = { renderPage, renderAnimeTitle, renderAnimeWatch };
-  global.AnikotoModule = { renderPage, renderAnimeTitle, renderAnimeWatch };
+  global.AniListModule = { renderPage };
 })(window);
